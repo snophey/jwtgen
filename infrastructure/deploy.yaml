@@ -48,6 +48,9 @@ spec:
       containers:
       - image: ghcr.io/snophey/jwtgen:main
         name: jwtgen
+        env:
+        - name: JWT_ISSUER
+          value: "https://jwtgen.dev"
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
