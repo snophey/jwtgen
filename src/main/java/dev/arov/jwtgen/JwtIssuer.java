@@ -54,15 +54,18 @@ public class JwtIssuer {
 
     @GET
     @Path("/.well-known/openid-configuration")
-    public OpenIdConfiguration getOpenIdConfiguration(@Context UriInfo uriInfo) {
+    public Response getOpenIdConfiguration(@Context UriInfo uriInfo) {
         String baseUri = issuer.isBlank() ? uriInfo.getBaseUri().toString().replaceAll("/$", "") : issuer;
-        return new OpenIdConfiguration(
+        OpenIdConfiguration config = new OpenIdConfiguration(
                 baseUri,
                 baseUri + "/.well-known/jwks.json",
                 List.of("id_token"),
                 List.of("public"),
                 List.of("RS256")
         );
+        return Response.ok(config)
+                .header("Access-Control-Allow-Origin", "*")
+                .build();
     }
 
     @POST
@@ -104,23 +107,33 @@ public class JwtIssuer {
 
     @Path("/.well-known/jwks.json")
     @GET
-    public String getJwks() {
+    public Response getJwks() {
+        return getJwksResponse();
+    }
+
+    @Path("/jwt/jwks")
+    @GET
+    public Response getJwksLegacy() {
+        return getJwksResponse();
+    }
+
+    private Response getJwksResponse() {
         try {
             JWK jwk = new RSAKey.Builder((RSAPublicKey) (publicKey.isBlank() ? loadPublicKeyFromDefaultFile() : loadPublicKeyFromString(publicKey)))
                     .keyUse(KeyUse.SIGNATURE)
                     .keyID(kid)
                     .build();
-            return "{\"keys\":[" + jwk.toJSONString() + "]}";
+            String jwksJson = "{\"keys\":[" + jwk.toJSONString() + "]}";
+            return Response.ok(jwksJson)
+                    .header("Access-Control-Allow-Origin", "*")
+                    .build();
         } catch (Exception e) {
             Log.error("Unable to load public key", e);
-            return "{\"error\":\"Unable to load public key at this time.\"}";
+            return Response.status(500)
+                    .entity("{\"error\":\"Unable to load public key at this time.\"}")
+                    .header("Access-Control-Allow-Origin", "*")
+                    .build();
         }
-    }
-
-    @Path("/jwt/jwks")
-    @GET
-    public String getJwksLegacy() {
-        return getJwks();
     }
 
     private PrivateKey loadPrivateKeyFromString(String pKey) {
