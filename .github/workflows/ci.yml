@@ -21,3 +21,29 @@ jobs:
           cache: maven
       - name: Build
         run: ./mvnw verify -B
+      - name: Build Container Image
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          IMAGE_NAME=${{ github.repository_owner }}/jwtgen
+          IMAGE_ID=ghcr.io/$IMAGE_NAME
+          IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
+          VERSION=${{ github.ref_name }}
+          
+          mvn package -DskipTests -s $GITHUB_WORKSPACE/settings.xml
+          docker build -t $IMAGE_ID:$VERSION . -f ./Dockerfile
+      - name: Push Image
+        run: |
+          # Log in to registry
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
+          docker images
+          
+          IMAGE_NAME=${{ github.repository_owner }}/$APP_NAME
+          IMAGE_ID=ghcr.io/$IMAGE_NAME
+
+          # Change all uppercase to lowercase
+          IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
+          VERSION=${{ github.ref_name }}
+          echo IMAGE_ID=$IMAGE_ID
+          echo VERSION=$VERSION
+          docker push $IMAGE_ID:$VERSION
