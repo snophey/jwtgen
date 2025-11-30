@@ -1,4 +1,4 @@
-package dev.arov.googlecloudfunctions;
+package dev.arov.jwtgen;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.nimbusds.jose.JWSAlgorithm;
