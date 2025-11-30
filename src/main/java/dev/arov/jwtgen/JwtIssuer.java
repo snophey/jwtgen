@@ -12,8 +12,10 @@ import com.nimbusds.jose.jwk.KeyUse;
 import com.nimbusds.jose.jwk.RSAKey;
 import io.quarkus.logging.Log;
 import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriInfo;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.io.IOException;
@@ -24,11 +26,20 @@ import java.security.interfaces.RSAPublicKey;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
+import java.util.List;
 
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
-@Path("/jwt")
+@Path("/")
 public class JwtIssuer {
+    
+    public record OpenIdConfiguration(
+            String issuer,
+            String jwks_uri,
+            List<String> response_types_supported,
+            List<String> subject_types_supported,
+            List<String> id_token_signing_alg_values_supported
+    ) {}
     @ConfigProperty(name = "jwt.private-key", defaultValue = " ")
     String privateKey;
 
@@ -38,8 +49,26 @@ public class JwtIssuer {
     @ConfigProperty(name = "jwt.kid", defaultValue = "default")
     String kid;
 
+    @ConfigProperty(name = "jwt.issuer", defaultValue = "http://localhost:8080")
+    String issuer;
+
+    @GET
+    @Path("/.well-known/openid-configuration")
+    public OpenIdConfiguration getOpenIdConfiguration(@Context UriInfo uriInfo) {
+        String baseUri = issuer.isBlank() ? uriInfo.getBaseUri().toString().replaceAll("/$", "") : issuer;
+        return new OpenIdConfiguration(
+                baseUri,
+                baseUri + "/.well-known/jwks.json",
+                List.of("id_token"),
+                List.of("public"),
+                List.of("RS256")
+        );
+    }
+
     @POST
+    @Path("/jwt")
     public JwtResponse issue(ObjectNode payload) {
+        Log.info("Received request to issue JWT...");
         var resp = new JwtResponse();
 
         var header = new JWSHeader.Builder(JWSAlgorithm.RS256).keyID(kid).build();
@@ -59,7 +88,7 @@ public class JwtIssuer {
 
     @POST
     @Consumes(MediaType.TEXT_PLAIN)
-    @Path("/verify")
+    @Path("/jwt/verify")
     public Response verify(String token) {
         try {
             var jwsObject = JWSObject.parse(token);
@@ -73,7 +102,7 @@ public class JwtIssuer {
         }
     }
 
-    @Path("/jwks")
+    @Path("/.well-known/jwks.json")
     @GET
     public String getJwks() {
         try {
@@ -86,6 +115,12 @@ public class JwtIssuer {
             Log.error("Unable to load public key", e);
             return "{\"error\":\"Unable to load public key at this time.\"}";
         }
+    }
+
+    @Path("/jwt/jwks")
+    @GET
+    public String getJwksLegacy() {
+        return getJwks();
     }
 
     private PrivateKey loadPrivateKeyFromString(String pKey) {
@@ -107,7 +142,7 @@ public class JwtIssuer {
     }
 
     private PrivateKey loadPrivateKeyFromDefaultFile() {
-        Log.info("Loading private key from default file");
+        Log.debug("Loading private key from default file");
         try (var stream = JwtIssuer.class.getClassLoader().getResourceAsStream("private_key_pkcs8.pem")) {
             if (stream == null)
                 throw new RuntimeException("Unable to load private key from default file");
