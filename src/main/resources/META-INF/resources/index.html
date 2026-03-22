@@ -178,6 +178,16 @@
                     <a href="https://8gwifi.org/jwkconvertfunctions.jsp">this one</a> to get the corresponding public key in PEM format.
                 </p>
             </div>
+            <div>
+                <h2>Usage in automated tests</h2>
+                <p>
+                    If you would like to generate JWTs from within your automated tests, you can easily do so by calling our JWT-issuing endpoint.
+                    Here's an example with curl:
+                </p>
+                <pre>
+                    curl -X POST -H 'Content-Type: application/json' 'https://jwtgen.dev/jwt' -d '{ "sub": "1234567890", "other-claim": 42 }'
+                </pre>
+            </div>
         </div>
     </main>
     <footer>
